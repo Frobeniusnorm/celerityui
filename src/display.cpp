@@ -20,51 +20,211 @@
 #include <ostream>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 #include "celerityui.h"
 using namespace std;
+static bool glfw_initialized = false;
+static volatile atomic<bool> glew_initialized = false;
 static unordered_map<GLFWwindow *, CelWin *> assoc_wins;
 static unordered_map<CelWin *, thread *> assoc_threads;
 static void error_callback(int, const char *error) {
 	std::cout << error << std::endl;
 }
-static void window_size_callback(GLFWwindow *win, int width, int height) {}
-static void window_pos_callback(GLFWwindow *win, int x, int y) {}
+static unordered_map<CelWin *, vector<void (*)(CelWin *)>> resize_callbacks;
+static void window_size_callback(GLFWwindow *win, int width, int height) {
+	CelWin *cw = assoc_wins[win];
+	cw->width = width;
+	cw->height = height;
+	for (const auto cb : resize_callbacks[cw])
+		cb(cw);
+}
+void cel_add_resize_callback(CelWin *win, void (*cb)(CelWin *)) {
+	auto &callbacks = resize_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_resize_callback(CelWin *win, void (*cb)(CelWin *)) {
+	auto &callbacks = resize_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
+static unordered_map<CelWin *, vector<void (*)(CelWin *)>> position_callbacks;
+static void window_pos_callback(GLFWwindow *win, int x, int y) {
+	CelWin *cw = assoc_wins[win];
+	cw->x = x;
+	cw->y = y;
+	for (const auto cb : position_callbacks[cw])
+		cb(cw);
+}
+void cel_add_position_callback(CelWin *win, void (*cb)(CelWin *)) {
+	auto &callbacks = position_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_position_callback(CelWin *win, void (*cb)(CelWin *)) {
+	auto &callbacks = resize_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
+static unordered_map<CelWin *, vector<void (*)(CelWin *, int focus)>>
+	focus_callbacks;
+static void window_focus_callback(GLFWwindow *win, int focus) {
+	CelWin *cw = assoc_wins[win];
+	for (const auto cb : focus_callbacks[cw])
+		cb(cw, focus);
+}
+void cel_add_focus_callback(CelWin *win, void (*cb)(CelWin *, int focus)) {
+	auto &callbacks = focus_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_focus_callback(CelWin *win, void (*cb)(CelWin *, int focus)) {
+	auto &callbacks = focus_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
+static unordered_map<CelWin *, vector<void (*)(CelWin *, double x, double y)>>
+	cursor_callbacks;
+static void window_cursor_callback(GLFWwindow *win, double x, double y) {
+	CelWin *cw = assoc_wins[win];
+	for (const auto cb : cursor_callbacks[cw])
+		cb(cw, x, y);
+}
+void cel_add_cursor_callback(CelWin *win,
+							 void (*cb)(CelWin *, double x, double y)) {
+	auto &callbacks = cursor_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_cursor_callback(CelWin *win,
+								void (*cb)(CelWin *, double x, double y)) {
+	auto &callbacks = cursor_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
+static unordered_map<CelWin *, vector<void (*)(CelWin *, int, int, int)>>
+	mouse_callbacks;
+static void window_mouse_callback(GLFWwindow *win, int button, int action,
+								  int mods) {
+	CelWin *cw = assoc_wins[win];
+	for (const auto cb : mouse_callbacks[cw])
+		cb(cw, button, action, mods);
+}
+void cel_add_mouse_callback(CelWin *win, void (*cb)(CelWin *, int, int, int)) {
+	auto &callbacks = mouse_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_mouse_callback(CelWin *win,
+							   void (*cb)(CelWin *, int, int, int)) {
+	auto &callbacks = mouse_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
+static unordered_map<CelWin *, vector<void (*)(CelWin *, double, double)>>
+	scroll_callbacks;
+static void window_scroll_callback(GLFWwindow *win, double x, double y) {
+	CelWin *cw = assoc_wins[win];
+	for (const auto cb : scroll_callbacks[cw])
+		cb(cw, x, y);
+}
+void cel_add_scroll_callback(CelWin *win,
+							 void (*cb)(CelWin *, double, double)) {
+	auto &callbacks = scroll_callbacks;
+	if (!callbacks.contains(win))
+		callbacks.insert({win, {cb}});
+	else
+		callbacks[win].push_back(cb);
+}
+void cel_remove_scroll_callback(CelWin *win,
+								void (*cb)(CelWin *, double, double)) {
+	auto &callbacks = scroll_callbacks;
+	for (auto oc = callbacks[win].begin(); oc != callbacks[win].end(); oc++) {
+		if (*oc == cb) {
+			callbacks[win].erase(oc);
+			return;
+		}
+	}
+}
 static void window_routine(CelWin *win) {
 	GLFWwindow *window =
 		glfwCreateWindow(win->width, win->height, win->name, nullptr, nullptr);
 	win->window = window;
 	glfwSetWindowSizeCallback(window, window_size_callback);
 	glfwSetWindowPosCallback(window, window_pos_callback);
+	glfwSetWindowFocusCallback(window, window_focus_callback);
+	glfwSetCursorPosCallback(window, window_cursor_callback);
+	glfwSetMouseButtonCallback(window, window_mouse_callback);
+	glfwSetScrollCallback(window, window_scroll_callback);
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
-	int glew_stat = glewInit();
-	if (glew_stat != GLEW_OK) {
-		cout << "Could not init glew " << glew_stat << endl;
-		return;
+	if (!glew_initialized.exchange(true)) {
+		int glew_stat = glewInit();
+		if (glew_stat != GLEW_OK) {
+			return;
+		}
 	}
 	assoc_wins.insert({window, win});
 	glClearColor(1, 1, 1, 1);
 	glViewport(0, 0, win->width, win->height);
-	while (!glfwWindowShouldClose(window) && win->closed == 0) {
+	int oldwidth = win->width;
+	int oldheight = win->height;
+	while (!glfwWindowShouldClose(window)) {
+		if (glfwGetCurrentContext() != window)
+			glfwMakeContextCurrent(window);
+		if (win->width != oldwidth || win->height != oldheight) {
+			oldwidth = win->width;
+			oldheight = win->height;
+			glViewport(0, 0, oldwidth, oldheight);
+		}
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		std::cout << "update" << std::endl;
 		glfwWaitEvents();
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+	glfwDestroyWindow(window);
 }
 
 CelWin *cel_create_window(const char *title, int width, int height) {
 	glfwSetErrorCallback(error_callback);
-	if (!glfwInit()) {
-		cout << "Could not init glfw" << endl;
+	if (!glfw_initialized && !glfwInit()) {
 		return nullptr;
 	}
+	glfw_initialized = true;
 	CelWin *res = new CelWin();
 	res->name = title;
 	res->width = width;
 	res->height = height;
-	res->closed = 0;
 	assoc_threads.insert({res, new thread(window_routine, res)});
 	return res;
 }
@@ -73,10 +233,25 @@ void cel_wait_for_window(CelWin *win) {
 }
 void cel_destroy_window(CelWin *win) {
 	assoc_wins.erase(win->window);
-	win->closed = 1;
+	glfwSetWindowShouldClose(win->window, 1);
+	glfwPostEmptyEvent();
 	assoc_threads[win]->join();
 	delete assoc_threads[win];
 	assoc_threads.erase(win);
-	glfwDestroyWindow(win->window);
+	scroll_callbacks.erase(win);
+	mouse_callbacks.erase(win);
+	cursor_callbacks.erase(win);
+	resize_callbacks.erase(win);
+	position_callbacks.erase(win);
+	focus_callbacks.erase(win);
 	delete win;
+}
+void cel_resize_window(CelWin *win, int x, int y) {
+	glfwSetWindowSize(win->window, x, y);
+}
+void cel_move_window(CelWin *win, int x, int y) {
+	glfwSetWindowPos(win->window, x, y);
+}
+void cel_rename_window(CelWin *win, const char *title) {
+	glfwSetWindowTitle(win->window, title);
 }

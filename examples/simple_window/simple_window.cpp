@@ -18,7 +18,8 @@
 #include "celerityui.h"
 
 int main() {
-	CelWin* a = cel_create_window("Test Window Creation", 600, 400);
-	std::cout << a << std::endl;	
+	CelWin* a = cel_create_window("Test Window Creation 1", 600, 400);
+	CelWin* b = cel_create_window("Test Window Creation 2", 500, 500);
 	cel_wait_for_window(a);
+	cel_wait_for_window(b);
 }

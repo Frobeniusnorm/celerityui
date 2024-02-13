@@ -20,11 +20,26 @@
 struct CelWin {
 	const char *name;
 	GLFWwindow *window;
+	int x, y;
 	int width;
 	int height;
-	int closed;
 };
 CelWin *cel_create_window(const char *title, int width, int height);
 void cel_destroy_window(CelWin *);
 void cel_wait_for_window(CelWin *);
+void cel_resize_window(CelWin *, int, int);
+void cel_move_window(CelWin *, int, int);
+void cel_rename_window(CelWin *, const char *);
+void cel_add_resize_callback(CelWin *, void (*)(CelWin *));
+void cel_remove_resize_callback(CelWin *, void (*)(CelWin *));
+void cel_add_position_callback(CelWin *, void (*)(CelWin *));
+void cel_remove_position_callback(CelWin *, void (*)(CelWin *));
+void cel_add_focus_callback(CelWin *, void (*)(CelWin *, int focus));
+void cel_remove_focus_callback(CelWin *, void (*)(CelWin *, int focus));
+void cel_add_cursor_callback(CelWin*, void (*)(CelWin *, double x, double y));
+void cel_remove_cursor_callback(CelWin*, void (*)(CelWin *, double x, double y));
+void cel_add_mouse_callback(CelWin*, void (*)(CelWin *, int, int, int));
+void cel_remove_mouse_callback(CelWin*, void (*)(CelWin *, int, int, int));
+void cel_add_scroll_callback(CelWin*, void (*)(CelWin *, double, double));
+void cel_remove_scroll_callback(CelWin*, void (*)(CelWin *, double, double));
 #endif
