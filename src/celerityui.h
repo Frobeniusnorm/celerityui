@@ -17,13 +17,31 @@
 #ifndef CELERITYUI
 #define CELERITYUI
 #include <GLFW/glfw3.h>
-struct CelWin {
+/** Color Definitions **/
+typedef struct CelWin {
 	const char *name;
 	GLFWwindow *window;
 	int x, y;
 	int width;
 	int height;
-};
+} CelWin;
+typedef struct CelColorRGBA {
+	float r;
+	float g;
+	float b;
+	float a;
+} CelColorRGBA;
+typedef struct CelColorGradient {	
+	CelColorRGBA a;
+	CelColorRGBA b;
+	float center;
+	float angle;
+} CelColorGradient;
+typedef union CelColor {
+	CelColorRGBA color;
+	CelColorGradient gradient;
+} CelColor;
+/** Window Management Functions **/
 CelWin *cel_create_window(const char *title, int width, int height);
 void cel_destroy_window(CelWin *);
 void cel_wait_for_window(CelWin *);

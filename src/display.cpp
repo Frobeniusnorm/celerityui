@@ -176,42 +176,54 @@ void cel_remove_scroll_callback(CelWin *win,
 		}
 	}
 }
+static mutex draw_mutex;
 static void window_routine(CelWin *win) {
 	GLFWwindow *window =
 		glfwCreateWindow(win->width, win->height, win->name, nullptr, nullptr);
 	win->window = window;
+	assoc_wins.insert({window, win});
 	glfwSetWindowSizeCallback(window, window_size_callback);
 	glfwSetWindowPosCallback(window, window_pos_callback);
 	glfwSetWindowFocusCallback(window, window_focus_callback);
 	glfwSetCursorPosCallback(window, window_cursor_callback);
 	glfwSetMouseButtonCallback(window, window_mouse_callback);
 	glfwSetScrollCallback(window, window_scroll_callback);
-	glfwMakeContextCurrent(window);
-	glfwSwapInterval(0);
-	if (!glew_initialized.exchange(true)) {
-		int glew_stat = glewInit();
-		if (glew_stat != GLEW_OK) {
-			return;
+	{
+		const lock_guard<mutex> lk(draw_mutex);
+		glfwMakeContextCurrent(window);
+		glfwSwapInterval(0);
+		if (!glew_initialized.exchange(true)) {
+			int glew_stat = glewInit();
+			if (glew_stat != GLEW_OK) {
+				return;
+			}
 		}
+		glClearColor(1, 1, 1, 1);
+		glViewport(0, 0, win->width, win->height);
 	}
-	assoc_wins.insert({window, win});
-	glClearColor(1, 1, 1, 1);
-	glViewport(0, 0, win->width, win->height);
 	int oldwidth = win->width;
 	int oldheight = win->height;
 	while (!glfwWindowShouldClose(window)) {
-		if (glfwGetCurrentContext() != window)
-			glfwMakeContextCurrent(window);
-		if (win->width != oldwidth || win->height != oldheight) {
-			oldwidth = win->width;
-			oldheight = win->height;
-			glViewport(0, 0, oldwidth, oldheight);
+		bool dont_sleep = false;
+		{
+			const lock_guard<mutex> lk(draw_mutex);
+			if (glfwGetCurrentContext() != window)
+				glfwMakeContextCurrent(window);
+			if (win->width != oldwidth || win->height != oldheight) {
+				oldwidth = win->width;
+				oldheight = win->height;
+				glViewport(0, 0, oldwidth, oldheight);
+			}
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glfwSwapBuffers(window);
 		}
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glfwWaitEvents();
-		glfwSwapBuffers(window);
-		glfwPollEvents();
+		if (!dont_sleep) {
+			glfwWaitEvents();
+			glfwPollEvents();
+		}
 	}
+	cout << "close" << endl;
+	glfwHideWindow(window);
 	glfwDestroyWindow(window);
 }
 
@@ -232,10 +244,10 @@ void cel_wait_for_window(CelWin *win) {
 	assoc_threads[win]->join();
 }
 void cel_destroy_window(CelWin *win) {
-	assoc_wins.erase(win->window);
 	glfwSetWindowShouldClose(win->window, 1);
 	glfwPostEmptyEvent();
 	assoc_threads[win]->join();
+	assoc_wins.erase(win->window);
 	delete assoc_threads[win];
 	assoc_threads.erase(win);
 	scroll_callbacks.erase(win);
