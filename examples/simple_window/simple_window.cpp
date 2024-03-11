@@ -19,7 +19,5 @@
 
 int main() {
 	CelWin* a = cel_create_window("Test Window Creation 1", 600, 400);
-	CelWin* b = cel_create_window("Test Window Creation 2", 500, 500);
 	cel_wait_for_window(a);
-	cel_wait_for_window(b);
 }

@@ -1,8 +1,6 @@
 #ifndef VAO_HPP
 #define VAO_HPP
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 #include <optional>
 #include <string>
 #include <type_traits>

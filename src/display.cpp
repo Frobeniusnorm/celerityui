@@ -222,7 +222,6 @@ static void window_routine(CelWin *win) {
 			glfwPollEvents();
 		}
 	}
-	cout << "close" << endl;
 	glfwHideWindow(window);
 	glfwDestroyWindow(window);
 }

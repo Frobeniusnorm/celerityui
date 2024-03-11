@@ -16,8 +16,9 @@
 
 #ifndef CELERITYUI
 #define CELERITYUI
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
-/** Color Definitions **/
+/* Color Definitions */
 typedef struct CelWin {
 	const char *name;
 	GLFWwindow *window;
@@ -31,7 +32,7 @@ typedef struct CelColorRGBA {
 	float b;
 	float a;
 } CelColorRGBA;
-typedef struct CelColorGradient {	
+typedef struct CelColorGradient {
 	CelColorRGBA a;
 	CelColorRGBA b;
 	float center;
@@ -41,7 +42,16 @@ typedef union CelColor {
 	CelColorRGBA color;
 	CelColorGradient gradient;
 } CelColor;
-/** Window Management Functions **/
+typedef struct CelPaint {
+	CelColor color;
+	float blur;
+} CelPaint;
+typedef struct CelRect {
+	CelPaint color;
+	float x, y, width, height;
+	CelWin *origin;
+} CelRect;
+/* Window Management Functions */
 CelWin *cel_create_window(const char *title, int width, int height);
 void cel_destroy_window(CelWin *);
 void cel_wait_for_window(CelWin *);
@@ -54,10 +64,15 @@ void cel_add_position_callback(CelWin *, void (*)(CelWin *));
 void cel_remove_position_callback(CelWin *, void (*)(CelWin *));
 void cel_add_focus_callback(CelWin *, void (*)(CelWin *, int focus));
 void cel_remove_focus_callback(CelWin *, void (*)(CelWin *, int focus));
-void cel_add_cursor_callback(CelWin*, void (*)(CelWin *, double x, double y));
-void cel_remove_cursor_callback(CelWin*, void (*)(CelWin *, double x, double y));
-void cel_add_mouse_callback(CelWin*, void (*)(CelWin *, int, int, int));
-void cel_remove_mouse_callback(CelWin*, void (*)(CelWin *, int, int, int));
-void cel_add_scroll_callback(CelWin*, void (*)(CelWin *, double, double));
-void cel_remove_scroll_callback(CelWin*, void (*)(CelWin *, double, double));
+void cel_add_cursor_callback(CelWin *, void (*)(CelWin *, double x, double y));
+void cel_remove_cursor_callback(CelWin *,
+								void (*)(CelWin *, double x, double y));
+void cel_add_mouse_callback(CelWin *, void (*)(CelWin *, int, int, int));
+void cel_remove_mouse_callback(CelWin *, void (*)(CelWin *, int, int, int));
+void cel_add_scroll_callback(CelWin *, void (*)(CelWin *, double, double));
+void cel_remove_scroll_callback(CelWin *, void (*)(CelWin *, double, double));
+/* Rectangles */
+CelRect *cel_create_rectangle(CelWin *, float x, float y, float width,
+							  float height, CelPaint color);
+void cel_delete_rectangle(CelWin *, CelRect *);
 #endif

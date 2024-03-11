@@ -24,9 +24,6 @@ target_link_libraries(${TARGET} OpenGL::GL)
 find_package(GLEW REQUIRED)
 target_link_libraries(${TARGET} GLEW)
 
-find_package(glm REQUIRED)
-target_link_libraries(${TARGET} glm)
-
 find_package(Freetype REQUIRED)
 target_link_libraries(${TARGET} ${FREETYPE_LIBRARIES})
 target_include_directories(${TARGET} PRIVATE ${FREETYPE_INCLUDE_DIRS})
