@@ -49,6 +49,13 @@ class Vao {
 	inline void add_index_buffer(std::vector<unsigned int> indices) {
 		add_index_buffer(indices.data(), indices.size());
 	}
+  /**
+   *  Returns the number of added vertex buffer objects.
+   *  Does not count the index buffer
+   */
+  inline size_t get_number_vertex_buffers() const {
+    return vbos.size();
+  }
 	/**
    * Adds a vertex buffer to the Vao.
    * Only int and float datatypes are supported.

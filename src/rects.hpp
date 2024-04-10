@@ -4,13 +4,16 @@
 #include "vao.hpp"
 #include "shader.hpp"
 #include <vector>
+#define MAX_BATCH_ELEMENTS 1024
 class RectRenderer {
-	Vao rectangle;
+  std::vector<Vao> vaos;
 	ShaderProgram program;
+  void recalculate_indexing();
 public:
-	std::vector<CelRect*> rectangles;
+  // batches of rectangles, each batch has at most MAX_BATCH_ELEMENTS elements
+  std::vector<std::vector<CelRect*>> rectangles;
 	RectRenderer();
-	void renderOpaque();
-	void renderTransparent(int to_index);
+	void render_opaque();
+	void render_transparent(int to_index);
 };
 #endif
