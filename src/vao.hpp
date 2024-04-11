@@ -2,7 +2,6 @@
 #define VAO_HPP
 #include <GL/glew.h>
 #include <optional>
-#include <string>
 #include <type_traits>
 #include <vector>
 struct Vbo {

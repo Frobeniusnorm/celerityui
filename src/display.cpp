@@ -21,12 +21,17 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <semaphore>
 #include "celerityui.h"
+
+#include "internal.hpp"
+
 using namespace std;
 static bool glfw_initialized = false;
 static volatile atomic<bool> glew_initialized = false;
 static unordered_map<GLFWwindow *, CelWin *> assoc_wins;
 static unordered_map<CelWin *, thread *> assoc_threads;
+static unordered_map<CelWin *, binary_semaphore*> wait_for_create;
 static void error_callback(int, const char *error) {
 	std::cout << error << std::endl;
 }
@@ -176,7 +181,6 @@ void cel_remove_scroll_callback(CelWin *win,
 		}
 	}
 }
-static mutex draw_mutex;
 static void window_routine(CelWin *win) {
 	GLFWwindow *window =
 		glfwCreateWindow(win->width, win->height, win->name, nullptr, nullptr);
@@ -189,24 +193,27 @@ static void window_routine(CelWin *win) {
 	glfwSetMouseButtonCallback(window, window_mouse_callback);
 	glfwSetScrollCallback(window, window_scroll_callback);
 	{
-		const lock_guard<mutex> lk(draw_mutex);
+		const lock_guard<mutex> lk(Internal::gl_lock);
 		glfwMakeContextCurrent(window);
-		glfwSwapInterval(0);
 		if (!glew_initialized.exchange(true)) {
 			int glew_stat = glewInit();
 			if (glew_stat != GLEW_OK) {
+        std::cerr << "GLEW error!" << std::endl;
 				return;
 			}
+      std::cout << "glew init" << std::endl;
 		}
 		glClearColor(1, 1, 1, 1);
 		glViewport(0, 0, win->width, win->height);
+		glfwMakeContextCurrent(nullptr);
 	}
+  wait_for_create[win]->release();
 	int oldwidth = win->width;
 	int oldheight = win->height;
 	while (!glfwWindowShouldClose(window)) {
 		bool dont_sleep = false;
 		{
-			const lock_guard<mutex> lk(draw_mutex);
+			const lock_guard<mutex> lk(Internal::gl_lock);
 			if (glfwGetCurrentContext() != window)
 				glfwMakeContextCurrent(window);
 			if (win->width != oldwidth || win->height != oldheight) {
@@ -215,7 +222,9 @@ static void window_routine(CelWin *win) {
 				glViewport(0, 0, oldwidth, oldheight);
 			}
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			cel_render_rectangles(win);
 			glfwSwapBuffers(window);
+			glfwMakeContextCurrent(nullptr);
 		}
 		if (!dont_sleep) {
 			glfwWaitEvents();
@@ -236,7 +245,11 @@ CelWin *cel_create_window(const char *title, int width, int height) {
 	res->name = title;
 	res->width = width;
 	res->height = height;
+  wait_for_create.insert({res, new std::binary_semaphore(0)});
 	assoc_threads.insert({res, new thread(window_routine, res)});
+  wait_for_create[res]->acquire();
+  delete wait_for_create[res];
+  wait_for_create.erase(res);
 	return res;
 }
 void cel_wait_for_window(CelWin *win) {

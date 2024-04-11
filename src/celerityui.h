@@ -32,23 +32,14 @@ typedef struct CelColorRGBA {
 	float b;
 	float a;
 } CelColorRGBA;
-typedef struct CelColorGradient {
-	CelColorRGBA a;
-	CelColorRGBA b;
-	float center;
-	float angle;
-} CelColorGradient;
-typedef union CelColor {
-	CelColorRGBA color;
-	CelColorGradient gradient;
-} CelColor;
+// gradients through paint per corner
 typedef struct CelPaint {
-	CelColor color;
+	CelColorRGBA color;
 	float blur;
 } CelPaint;
 typedef struct CelRect {
 	CelPaint color;
-	float x, y, width, height;
+	float x, y, width, height, rotation;
 	CelWin *origin;
 } CelRect;
 /* Window Management Functions */
@@ -75,4 +66,5 @@ void cel_remove_scroll_callback(CelWin *, void (*)(CelWin *, double, double));
 CelRect *cel_create_rectangle(CelWin *, float x, float y, float width,
 							  float height, CelPaint color);
 void cel_delete_rectangle(CelWin *, CelRect *);
+void cel_render_rectangles(CelWin * win);
 #endif

@@ -1,28 +1,35 @@
 #include "rects.hpp"
 #include <GLFW/glfw3.h>
+#include <glm/fwd.hpp>
 #include <unordered_map>
 #include "src/celerityui.h"
-std::unordered_map<CelWin *, RectRenderer> renderer;
+#include "src/internal.hpp"
+std::unordered_map<CelWin *, RectRenderer *> renderer;
 CelRect *cel_create_rectangle(CelWin *win, float x, float y, float width,
 							  float height, CelPaint color) {
-	glfwMakeContextCurrent(win->window);
-	if (!renderer.contains(win))
-		renderer.emplace(win, RectRenderer());
+	{
+		using namespace std;
+		const lock_guard<mutex> lk(Internal::gl_lock);
+		glfwMakeContextCurrent(win->window);
+		if (!renderer.contains(win))
+			renderer.insert({win, new RectRenderer()});
+		glfwMakeContextCurrent(nullptr);
+	}
 	CelRect *rect = new CelRect();
 	rect->color = color;
 	rect->x = x;
 	rect->y = y;
 	rect->width = width;
 	rect->height = height;
-	if (renderer[win].rectangles.empty() ||
-		renderer[win].rectangles.back().size() >= MAX_BATCH_ELEMENTS)
-		renderer[win].rectangles.push_back({});
-	renderer[win].rectangles.back().push_back(rect);
+	if (renderer[win]->rectangles.empty() ||
+		renderer[win]->rectangles.back().size() >= MAX_BATCH_ELEMENTS)
+		renderer[win]->rectangles.push_back({});
+	renderer[win]->rectangles.back().push_back(rect);
 	return rect;
 }
 void cel_delete_rectangle(CelWin *win, CelRect *rect) {
 	using namespace std;
-	vector<vector<CelRect *>> &batches = renderer[win].rectangles;
+	vector<vector<CelRect *>> &batches = renderer[win]->rectangles;
 	for (vector<CelRect *> &rects : batches) {
 		for (auto it = rects.begin(); it != rects.end(); it++) {
 			if (*it == rect) {
@@ -33,8 +40,13 @@ void cel_delete_rectangle(CelWin *win, CelRect *rect) {
 	}
 	delete rect;
 }
+
+void cel_render_rectangles(CelWin *win) {
+	if (renderer.contains(win))
+		renderer[win]->render_opaque();
+}
 const std::string rect_vertex = R"(
-#version 140 core
+#version 400
 #define MAX_BATCH_ELEMENTS 1024
 layout (location = 0) in vec2 pos;
 uniform vec2 positions[MAX_BATCH_ELEMENTS];
@@ -46,8 +58,8 @@ void main() {
   // scale
   vec2 final = pos * scales[gl_InstanceID];
   // rotate
-  const cosr = cos(rotations[gl_InstanceID]);
-  const sinr = sin(rotations[gl_InstanceID]);
+  float cosr = cos(rotations[gl_InstanceID]);
+  float sinr = sin(rotations[gl_InstanceID]);
   final = vec2(final.x * cosr - final.y * sinr, final.x * sinr + final.y * cosr);
   // translate
   final += positions[gl_InstanceID];
@@ -57,7 +69,7 @@ void main() {
 }
 )";
 const std::string rect_frag = R"(
-#version 140 core
+#version 400
 in vec4 out_color;
 out vec4 final_color;
 void main() {
@@ -79,6 +91,25 @@ void RectRenderer::recalculate_indexing() {
 	}
 }
 void RectRenderer::render_opaque() {
-
+	using namespace glm;
+	program.start();
+	recalculate_indexing();
+	for (int i = 0; i < vaos.size(); i++) {
+		vaos[i].bind();
+		for (int j = 0; j < rectangles[i].size(); j++) {
+			CelRect *rect = rectangles[i][j];
+			program.load("positions[" + std::to_string(i) + "]",
+						 vec2(rect->x, rect->y));
+			program.load("rotations[" + std::to_string(i) + "]",
+						 rect->rotation);
+			program.load("scales[" + std::to_string(i) + "]",
+						 vec2(rect->width, rect->height));
+			program.load("colors[" + std::to_string(i) + "]",
+						 vec4(rect->color.color.r, rect->color.color.g,
+							  rect->color.color.b, rect->color.color.a));
+		}
+		vaos[i].draw();
+	}
+	program.stop();
 }
 void RectRenderer::render_transparent(int to_index) {}
