@@ -1,6 +1,7 @@
 #include "rects.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/fwd.hpp>
+#include <iostream>
 #include <unordered_map>
 #include "src/celerityui.h"
 #include "src/internal.hpp"
@@ -60,7 +61,9 @@ void main() {
   // rotate
   float cosr = cos(rotations[gl_InstanceID]);
   float sinr = sin(rotations[gl_InstanceID]);
-  final = vec2(final.x * cosr - final.y * sinr, final.x * sinr + final.y * cosr);
+  vec2 centered = final - vec2(1, -1) * scales[gl_InstanceID] / 2;
+  final = vec2(centered.x * cosr - centered.y * sinr, centered.x * sinr + centered.y * cosr);
+  final += vec2(1, -1) * scales[gl_InstanceID] / 2;
   // translate
   final += positions[gl_InstanceID];
   // pass through
@@ -96,15 +99,16 @@ void RectRenderer::render_opaque() {
 	recalculate_indexing();
 	for (int i = 0; i < vaos.size(); i++) {
 		vaos[i].bind();
+    vaos[i].set_instance_count(rectangles[i].size());
 		for (int j = 0; j < rectangles[i].size(); j++) {
 			CelRect *rect = rectangles[i][j];
-			program.load("positions[" + std::to_string(i) + "]",
+			program.load("positions[" + std::to_string(j) + "]",
 						 vec2(rect->x, rect->y));
-			program.load("rotations[" + std::to_string(i) + "]",
+			program.load("rotations[" + std::to_string(j) + "]",
 						 rect->rotation);
-			program.load("scales[" + std::to_string(i) + "]",
+			program.load("scales[" + std::to_string(j) + "]",
 						 vec2(rect->width, rect->height));
-			program.load("colors[" + std::to_string(i) + "]",
+			program.load("colors[" + std::to_string(j) + "]",
 						 vec4(rect->color.color.r, rect->color.color.g,
 							  rect->color.color.b, rect->color.color.a));
 		}
